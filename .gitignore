@@ -1,0 +1,11 @@
+Debug/
+ipch/
+x64/
+MyOpengl.sdf
+MyOpengl.VC.db
+MyOpengl/Debug/
+MyOpengl/x64/
+.vs/
+MyOpengl/MyOpengl.aps
+
+

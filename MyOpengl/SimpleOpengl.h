@@ -24,6 +24,13 @@ struct stVertex
 	float y;
 	float z;
 };
+typedef CArray<stVertex, stVertex> CArVertex;
+
+struct stLine
+{
+	stVertex v1, v2;
+};
+typedef CArray<stLine, stLine> CArLine;
 
 struct stColor
 {
@@ -46,6 +53,10 @@ class CSimpleOpengl : public CStatic //public CWnd
 	CDC *m_pDc;
 	HGLRC m_hRC;
 	CRect m_rtDispCtrl;
+	int m_nWorldW, m_nWorldH;
+	CArLine m_arLine;
+
+	BOOL m_bInit, m_bDraw;
 	BOOL m_bThreadAlive, m_bThreadStateEnd;
 	std::thread t1;
 
@@ -56,6 +67,8 @@ class CSimpleOpengl : public CStatic //public CWnd
 
 	void ThreadStart();
 	void ThreadStop();
+
+	void StringToChar(CString str, char* szStr);
 
 public:
 	CSimpleOpengl();
@@ -70,12 +83,18 @@ public:
 	void DrawBegin(int mode, int size, stColor color);
 	void DrawEnd();
 	void DrawRect(stVertex V1, stVertex V2);
+	void DrawLine(stVertex V1, stVertex V2);
+	void Draw();
+	void DrawClear();
 
-	void Draw(CDC *pDc);
+	void SetText(CString str, stVertex pos, int size=10, stColor color = { 1,1,1 }, int line_width=1);
+	void AddLine(stVertex v1, stVertex v2);
 
-	void SetupLight(GLfloat R = 0.0f, GLfloat G = 0.0f, GLfloat B = 0.0f, GLfloat A = 1.0f, BOOL CirclePoint = 1);
 	void SetupResize(int cx, int cy);
-	void SetupCamera(GLfloat *cameraposmap, int W, int H, GLfloat *Angle);
+	//void SetupLight(GLfloat R = 0.0f, GLfloat G = 0.0f, GLfloat B = 0.0f, GLfloat A = 1.0f, BOOL CirclePoint = 1);
+	//void SetupCamera(GLfloat *cameraposmap, int W, int H, GLfloat *Angle);
+	void Init();
+	BOOL IsDraw();
 
 protected:
 	void ThreadEnd();

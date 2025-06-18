@@ -82,6 +82,7 @@ BEGIN_MESSAGE_MAP(CMyOpenglDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_WM_TIMER()
 	ON_WM_CTLCOLOR()
+	ON_BN_CLICKED(IDC_BUTTON1, &CMyOpenglDlg::OnBnClickedButton1)
 END_MESSAGE_MAP()
 
 
@@ -128,6 +129,12 @@ BOOL CMyOpenglDlg::OnInitDialog()
 	//m_pDc = new CClientDC(FromHandle(hWnd));
 	//m_Opengl.SetHwnd(m_pDc, this);
 	//m_Opengl.RedrawWindow(NULL, NULL, RDW_INVALIDATE);
+
+	stVertex v1, v2;
+	v1.x = 10; v1.y = 10; v1.z = 0.0;
+	v2.x = 50; v2.y = 50; v2.z = 0.0;
+	m_Opengl.AddLine(v1, v2);
+
 	SetTimer(0, 100, NULL);
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -191,8 +198,16 @@ void CMyOpenglDlg::OnTimer(UINT_PTR nIDEvent)
 	if (nIDEvent == 0)
 	{
 		KillTimer(0);
-		//m_Opengl.Refresh();
-		m_Opengl.RedrawWindow(NULL, NULL, RDW_INVALIDATE);
+
+		stVertex v1, v2;
+		v1.x = 50; v1.y = 50; v1.z = 0.0;
+		v2.x = 150; v2.y = 50; v2.z = 0.0;
+		m_Opengl.AddLine(v1, v2);
+		m_Opengl.Refresh();
+
+		//m_Opengl.RedrawWindow(NULL, NULL, RDW_INVALIDATE);
+
+		//SetTimer(0, 100, NULL);
 	}
 
 	CDialogEx::OnTimer(nIDEvent);
@@ -207,4 +222,11 @@ HBRUSH CMyOpenglDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	//HDC hDc = ::GetDC(this->m_hWnd);
 	// TODO:  기본값이 적당하지 않으면 다른 브러시를 반환합니다.
 	return hbr;
+}
+
+
+void CMyOpenglDlg::OnBnClickedButton1()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	m_Opengl.DrawClear();
 }

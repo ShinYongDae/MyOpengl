@@ -21,8 +21,9 @@ CSimpleOpengl::CSimpleOpengl()
 	Angle[0] = 0.0f;
 	Angle[1] = 0.0f;
 	Angle[2] = 0.0f;
+	m_bInit = FALSE;
+	m_bDraw = FALSE;
 
-	//CreateWndForm(WS_CHILD | WS_OVERLAPPED);
 	ThreadStart();
 }
 
@@ -33,6 +34,9 @@ CSimpleOpengl::CSimpleOpengl(HWND& hCtrl, CWnd* pParent/*=NULL*/)
 		m_hParent = pParent->GetSafeHwnd();
 	m_hCtrl = hCtrl;
 	m_pDc = NULL;
+	m_bInit = FALSE;
+	m_bDraw = FALSE;
+
 	m_pDc = new CClientDC(FromHandle(hCtrl));
 	CreateWndForm(WS_CHILD | WS_OVERLAPPED);
 	ThreadStart();
@@ -88,31 +92,63 @@ BOOL CSimpleOpengl::CreateWndForm(DWORD dwStyle)
 }
 
 //void CSimpleOpengl::SetHwnd(CDC* pDc, CWnd* pParent/*=NULL*/)
+void CSimpleOpengl::Init()
+{
+	if (!m_bInit)
+	{
+		m_bInit = TRUE;
+		static PIXELFORMATDESCRIPTOR pfd =
+		{
+			sizeof(PIXELFORMATDESCRIPTOR),
+			1,
+			PFD_DRAW_TO_WINDOW |
+			PFD_SUPPORT_OPENGL |
+			PFD_DOUBLEBUFFER,
+			//PFD_DRAW_TO_WINDOW |
+			//PFD_SUPPORT_OPENGL,
+			PFD_TYPE_RGBA,
+			24,
+			0,0,0,0,0,0,
+			0,0,
+			0,0,0,0,0,
+			32,
+			0,//1,
+			0,
+			PFD_MAIN_PLANE,
+			0,
+			0,0,0
+		};
+
+		int nPixelFormat = ChoosePixelFormat(m_hDc, &pfd);	// DC가 지원하는 주어진 픽셀 포맷 사양과 일치하는 적절한 픽셀 포맷을 찾는다.
+		VERIFY(SetPixelFormat(m_hDc, nPixelFormat, &pfd));	// HGLRC(GL Rendering Context Handle)와 DC를 연결
+
+		m_hRC = wglCreateContext(m_hDc);					// Rendering Context 생성
+		VERIFY(wglMakeCurrent(m_hDc, m_hRC));				// 현재 스레드에 Rendering Context 설정
+
+		int argc = 1;
+		char *argv[1] = { (char*)"Something" };
+		glutInit(&argc, argv);
+
+		//SetupLight();
+		//glDisable(GL_LIGHTING);
+
+		CRect rtDispCtrl;
+		::GetClientRect(m_hCtrl, &rtDispCtrl);
+		//::GetWindowRect(m_hCtrl, &rtDispCtrl);
+		m_rtDispCtrl = rtDispCtrl;
+		m_nWorldW = rtDispCtrl.right - rtDispCtrl.left;
+		m_nWorldH = rtDispCtrl.bottom - rtDispCtrl.top;
+		SetupResize(m_nWorldW, m_nWorldH);
+		//SetupCamera(cameraposmap, nWorldW, nWorldH, Angle);
+	}
+}
+
 void CSimpleOpengl::SetHwnd(HWND hCtrlWnd, CWnd* pParent/*=NULL*/)
 {
 	m_pParent = pParent;
 	if (pParent)
 		m_hParent = pParent->GetSafeHwnd();
 
-	static PIXELFORMATDESCRIPTOR pfd =
-	{
-		sizeof(PIXELFORMATDESCRIPTOR),
-		1,
-		PFD_DRAW_TO_WINDOW |
-		PFD_SUPPORT_OPENGL |
-		PFD_DOUBLEBUFFER,
-		PFD_TYPE_RGBA,
-		24,
-		0,0,0,0,0,0,
-		0,0,
-		0,0,0,0,0,
-		32,
-		0,//1,
-		0,
-		PFD_MAIN_PLANE,
-		0,
-		0,0,0
-	};
 	m_hCtrl = hCtrlWnd;
 	m_pDc = new CClientDC(FromHandle(hCtrlWnd));
 	//m_pDc = pDc;
@@ -120,27 +156,7 @@ void CSimpleOpengl::SetHwnd(HWND hCtrlWnd, CWnd* pParent/*=NULL*/)
 	//m_hDc = ::GetDC(hCtrlWnd);
 	//m_hDc = ::GetDC(this->GetSafeHwnd());
 
-	int nPixelFormat = ChoosePixelFormat(m_hDc, &pfd);	// DC가 지원하는 주어진 픽셀 포맷 사양과 일치하는 적절한 픽셀 포맷을 찾는다.
-	VERIFY(SetPixelFormat(m_hDc, nPixelFormat, &pfd));	// HGLRC(GL Rendering Context Handle)와 DC를 연결
-
-	m_hRC = wglCreateContext(m_hDc);					// Rendering Context 생성
-	VERIFY(wglMakeCurrent(m_hDc, m_hRC));				// 현재 스레드에 Rendering Context 설정
-
-	int argc = 1;
-	char *argv[1] = { (char*)"Something" };
-	glutInit(&argc, argv);
-
-	//SetupLight();
-	//glDisable(GL_LIGHTING);
-
-	CRect rtDispCtrl;
-	::GetWindowRect(m_hCtrl, &rtDispCtrl);
-	m_rtDispCtrl = rtDispCtrl;
-	int nWorldW = rtDispCtrl.right - rtDispCtrl.left;
-	int nWorldH = rtDispCtrl.bottom - rtDispCtrl.top;
-	//SetupResize(nWorldW, nWorldH);
-
-	//SetupCamera(cameraposmap, nWorldW, nWorldH, Angle);
+	//Init();
 }
 
 void CSimpleOpengl::Refresh()
@@ -148,67 +164,9 @@ void CSimpleOpengl::Refresh()
 	RedrawWindow();
 }
 
-
-void CSimpleOpengl::Draw(CDC *pDc)
+BOOL CSimpleOpengl::IsDraw()
 {
-	//HDC hDc = pDc->GetSafeHdc();
-	//m_hRC = wglCreateContext(m_pDc->GetSafeHdc());
-	//wglMakeCurrent(m_hDc, m_hRC); //GVGLMakehDC(hDc, hRc);
-
-	//SetupLight();
-	//glDisable(GL_LIGHTING);
-
-	//CRect rtDispCtrl;
-	//::GetWindowRect(m_hCtrl, &rtDispCtrl);
-	//int nWorldW = rtDispCtrl.right - rtDispCtrl.left;
-	//int nWorldH = rtDispCtrl.bottom - rtDispCtrl.top;
-	//SetupResize(nWorldW, nWorldH);
-
-	//SetupCamera(cameraposmap, nWorldW, nWorldH, Angle);
-
-
-
-
-	//m_hRC = wglCreateContext(m_hDc);	// Rendering Context 생성
-	//wglMakeCurrent(m_hDc, m_hRC);		// 현재 스레드에 Rendering Context 설정
-
-	//SetupLight();
-	//glDisable(GL_LIGHTING);
-
-	//CRect rtDispCtrl;
-	//::GetWindowRect(m_hCtrl, &rtDispCtrl);
-	//int nWorldW = rtDispCtrl.right - rtDispCtrl.left;
-	//int nWorldH = rtDispCtrl.bottom - rtDispCtrl.top;
-	//SetupResize(nWorldW, nWorldH);
-
-	//SetupCamera(cameraposmap, nWorldW, nWorldH, Angle);
-	
-
-
-	stVertex v1, v2;
-	stColor color;
-	//v1.x = m_rtDispCtrl.left; v1.y = m_rtDispCtrl.top; v1.z = 0.0;
-	//v2.x = m_rtDispCtrl.right; v2.y = m_rtDispCtrl.bottom; v2.z = 0.0;
-	v1.x = 0; v1.y = 0; v1.z = 0.0;
-	v2.x = 0.5; v2.y = 0.5; v2.z = 0.0;
-	color.R = 1.0; color.G = 0.0; color.B = 0.0; color.A = 0.0;
-	//DrawBegin(Opengl::modRectF, 3, color);
-	DrawBegin(Opengl::modLine, 3, color);
-	DrawRect(v1, v2);
-
-	////선
-	//glVertex3f(0, 0, 0);
-	//glVertex3f(0.3, 0, 0);
-	////선머리
-	//glVertex3f(0.3, 0, 0);
-	//glVertex3f(0.21, 0.09, 0);
-	////선머리
-	//glVertex3f(0.3, 0, 0);
-	//glVertex3f(0.21, -0.09, 0);
-
-	DrawEnd();
-
-	SwapBuffers(m_hDc); // OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+	return m_bDraw;
 }
 
 void CSimpleOpengl::ProcThrd(const LPVOID lpContext)
@@ -219,6 +177,7 @@ void CSimpleOpengl::ProcThrd(const LPVOID lpContext)
 	{
 		if (!pSimpleOpengl->ProcOpengl())
 			break;
+		//Sleep(100);
 	}
 
 	pSimpleOpengl->ThreadEnd();
@@ -226,7 +185,12 @@ void CSimpleOpengl::ProcThrd(const LPVOID lpContext)
 
 BOOL CSimpleOpengl::ProcOpengl()
 {
-	Sleep(100);
+	if (m_bDraw)
+	{
+		m_bDraw = FALSE;
+		Init();
+		Draw();
+	}
 	return TRUE;
 }
 
@@ -272,26 +236,26 @@ BOOL CSimpleOpengl::ThreadIsAlive()
 	return m_bThreadAlive;
 }
 
-void CSimpleOpengl::SetupLight(GLfloat R, GLfloat G, GLfloat B, GLfloat A, BOOL CirclePoint)
-{
-	glClearColor(R, G, B, A);
-
-	glEnable(GL_DEPTH_TEST);							//깊이값표현 하기위해사용
-	glEnable(GL_LIGHTING);								//조명을 킨다는뜻
-	glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);			//light0에  자연광을 넣고
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);			//light0에 반사광넣고
-	glLightfv(GL_LIGHT0, GL_POSITION, pos);				//light0에 자연광 위치넣고
-	glLightfv(GL_LIGHT0, GL_SPECULAR, specular);		//light0반짝임 (재질넣고)
-
-	glEnable(GL_LIGHT0);								//light0를 작동시킴
-
-	if (CirclePoint)glEnable(GL_POINT_SMOOTH);
-
-	glEnable(GL_COLOR_MATERIAL);						//재질 파트
-	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);	//재질파트
-	glMaterialfv(GL_FRONT, GL_SPECULAR, specreff);		//재질파트
-	glMateriali(GL_FRONT, GL_SHININESS, 128);
-}
+//void CSimpleOpengl::SetupLight(GLfloat R, GLfloat G, GLfloat B, GLfloat A, BOOL CirclePoint)
+//{
+//	glClearColor(R, G, B, A);
+//
+//	glEnable(GL_DEPTH_TEST);							//깊이값표현 하기위해사용
+//	glEnable(GL_LIGHTING);								//조명을 킨다는뜻
+//	glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);			//light0에  자연광을 넣고
+//	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);			//light0에 반사광넣고
+//	glLightfv(GL_LIGHT0, GL_POSITION, pos);				//light0에 자연광 위치넣고
+//	glLightfv(GL_LIGHT0, GL_SPECULAR, specular);		//light0반짝임 (재질넣고)
+//
+//	glEnable(GL_LIGHT0);								//light0를 작동시킴
+//
+//	if (CirclePoint)glEnable(GL_POINT_SMOOTH);
+//
+//	glEnable(GL_COLOR_MATERIAL);						//재질 파트
+//	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);	//재질파트
+//	glMaterialfv(GL_FRONT, GL_SPECULAR, specreff);		//재질파트
+//	glMateriali(GL_FRONT, GL_SHININESS, 128);
+//}
 
 void CSimpleOpengl::SetupResize(int cx, int cy)
 {
@@ -300,32 +264,34 @@ void CSimpleOpengl::SetupResize(int cx, int cy)
 		cy = 1;
 
 	glViewport(0, 0, cx, cy);
-
-
+	//glOrtho(-0.5 * cx, 0.5 * cx, -0.5 * cy, 0.5 * cy, -2, 2);
+	glOrtho(0.0, cx, cy, 0.0, -2, 2); // (min_x, max_x, min_y, max_y, near, far)
+	//glOrtho(0.0, cx, 0.0, cy, -2, 2); // (min_x, max_x, min_y, max_y, near, far)
+/*
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	fAspect = (GLfloat)cx / (GLfloat)cy;
-	gluPerspective(45.0f, fAspect, 1.0f, -1.0f);
+	gluPerspective(45.0f, fAspect, 1.0f, -1.0f); // (시야각, 종횡비 (W/H), Front_z, Back_z)
 	//GLfloat f_w = (GLfloat)cx / (GLfloat)_WINDOW_WIDTH;
 	//glOrtho(-1.0, 1.0, -1.0, 1.0, -2, 2);
 
 	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	glLoadIdentity();*/
 }
 
-void CSimpleOpengl::SetupCamera(GLfloat *cameraposmap, int W, int H, GLfloat *Angle)
-{
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	glRotatef(Angle[2], 0.0f, 0.0f, 1.0f);
-
-	glTranslatef(cameraposmap[0], cameraposmap[1], cameraposmap[2]);
-
-	glRotatef(Angle[0], 1.0f, 0.0f, 0.0f);
-	glRotatef(Angle[1], 0.0f, 1.0f, 0.0f);
-}
+//void CSimpleOpengl::SetupCamera(GLfloat *cameraposmap, int W, int H, GLfloat *Angle)
+//{
+//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//	glMatrixMode(GL_MODELVIEW);
+//	glLoadIdentity();
+//
+//	glRotatef(Angle[2], 0.0f, 0.0f, 1.0f);
+//
+//	glTranslatef(cameraposmap[0], cameraposmap[1], cameraposmap[2]);
+//
+//	glRotatef(Angle[0], 1.0f, 0.0f, 0.0f);
+//	glRotatef(Angle[1], 0.0f, 1.0f, 0.0f);
+//}
 
 
 void CSimpleOpengl::DrawBegin(int nMode, int nSize, stColor Color)
@@ -383,13 +349,10 @@ void CSimpleOpengl::DrawEnd()
 {
 	glEnd();
 	glPopMatrix();	// Martrix상태를 스택에서 꺼낸다
-	glFlush();		//그림이 다 그렸졌다는 걸 알려줌.
 }
 
 void CSimpleOpengl::DrawRect(stVertex V1, stVertex V2)
 {
-	//glVertex3f(V1.x, V1.y, V1.z);
-	//glVertex3f(V2.x, V2.y, V2.z);
 	glVertex3f(V1.x, V1.y, V1.z);
 	glVertex3f(V2.x, V1.y, V2.z);
 
@@ -403,6 +366,33 @@ void CSimpleOpengl::DrawRect(stVertex V1, stVertex V2)
 	glVertex3f(V1.x, V1.y, V1.z);
 }
 
+void CSimpleOpengl::DrawLine(stVertex V1, stVertex V2)
+{
+	glVertex3f(V1.x, V1.y, V1.z);
+	glVertex3f(V2.x, V2.y, V2.z);
+}
+
+void CSimpleOpengl::SetText(CString str, stVertex pos, int size, stColor color, int line_width)
+{
+	int nLen = str.GetLength();
+	char* pData = new char[nLen + 1]; // for '\0'
+	StringToChar(str, pData);
+
+	char *c;
+	glPushMatrix();
+	glTranslatef(pos.x, pos.y, pos.z);
+	glLineWidth(line_width);
+	glColor3f(color.R, color.G, color.B);
+	glScalef(0.01f*size, 0.01f*size, 0.01f*size);
+
+	for (c = pData; *c != '\0'; c++)
+	{
+		glutStrokeCharacter(GLUT_STROKE_ROMAN, *c);
+	}
+	glPopMatrix();
+
+	delete pData;
+}
 
 
 HBRUSH CSimpleOpengl::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
@@ -435,17 +425,79 @@ void CSimpleOpengl::OnPaint()
 	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
 	// 그리기 메시지에 대해서는 CStatic::OnPaint()을(를) 호출하지 마십시오.
 
-	//HDC hdc = ::GetDC(this->m_hWnd);
-	//HDC hdc = dc.GetSafeHdc();
-	//HGLRC hRc = wglCreateContext(hdc);
+	//Draw();
+	m_bDraw = TRUE;
+}
 
-	//HGLRC hRc = wglCreateContext(dc.GetSafeHdc());
-	//if (hRc == 0)
-	//{
-	//	AfxMessageBox(_T("Error Creating RC"));
-	//	return;
-	//}
-	//Draw(&dc);
+void CSimpleOpengl::StringToChar(CString str, char* szStr)  // char* returned must be deleted... 
+{
+	int nLen = str.GetLength();
+	strcpy(szStr, CT2A(str));
+	szStr[nLen] = _T('\0');
+}
 
-	Draw(m_pDc);
+void CSimpleOpengl::AddLine(stVertex v1, stVertex v2)
+{
+	stLine _line;
+	_line.v1 = v1;
+	_line.v2 = v2;
+	m_arLine.Add(_line);
+}
+
+//void CSimpleOpengl::Draw()
+//{
+//	stVertex v1, v2;
+//	stColor color;
+//
+//	v1.x = m_nWorldW/2; v1.y = m_nWorldH/2; v1.z = 0.0;
+//	SetText(_T("Shin Yong Dae"), v1);
+//
+//	v1.x = 1; v1.y = 1; v1.z = 0.0;
+//	v2.x = m_nWorldW; v2.y = m_nWorldH; v2.z = 0.0;
+//	color.R = 1.0; color.G = 0.0; color.B = 0.0; color.A = 0.0;
+//	DrawBegin(Opengl::modLine, 1, color);
+//	DrawRect(v1, v2);
+//	DrawEnd();
+//
+//	v1.x = 0.25*m_nWorldW; v1.y = 0.25*m_nWorldH; v1.z = 0.0;
+//	v2.x = 0.75*m_nWorldW; v2.y = 0.75*m_nWorldH; v2.z = 0.0;
+//	color.R = 0.0; color.G = 1.0; color.B = 0.0; color.A = 0.0;
+//	DrawBegin(Opengl::modLine, 1, color);
+//	DrawRect(v1, v2);
+//	DrawEnd();
+//
+//	glFlush();				// 그림이 다 그렸졌다는 걸 알려줌.
+//	SwapBuffers(m_hDc);		// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+//}
+
+void CSimpleOpengl::Draw()
+{
+	int i, nTotal;
+	stLine _line;
+	stColor color;
+
+	nTotal = m_arLine.GetCount();
+
+	if (nTotal <= 0)	return;
+
+	color.R = 1.0; color.G = 0.0; color.B = 0.0; color.A = 0.0;
+	DrawBegin(Opengl::modLine, 1, color);
+
+	for (i = 0; i < nTotal; i++)
+	{
+		_line = m_arLine.GetAt(i);
+		DrawLine(_line.v1, _line.v2);
+	}
+
+	DrawEnd();
+	glFlush();				// 그림이 다 그렸졌다는 걸 알려줌.
+	SwapBuffers(m_hDc);		// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+
+	m_arLine.RemoveAll();
+}
+
+void CSimpleOpengl::DrawClear()
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	SwapBuffers(m_hDc);		// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
 }

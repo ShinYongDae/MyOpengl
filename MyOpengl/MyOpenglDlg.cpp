@@ -83,6 +83,8 @@ BEGIN_MESSAGE_MAP(CMyOpenglDlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_WM_CTLCOLOR()
 	ON_BN_CLICKED(IDC_BUTTON1, &CMyOpenglDlg::OnBnClickedButton1)
+	ON_BN_CLICKED(IDC_BUTTON2, &CMyOpenglDlg::OnBnClickedButton2)
+	ON_BN_CLICKED(IDC_BUTTON3, &CMyOpenglDlg::OnBnClickedButton3)
 END_MESSAGE_MAP()
 
 
@@ -228,5 +230,27 @@ HBRUSH CMyOpenglDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 void CMyOpenglDlg::OnBnClickedButton1()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	m_Opengl.DrawClear();
+	//m_Opengl.DrawClear();
+	m_Opengl.SetClear();
+}
+
+
+void CMyOpenglDlg::OnBnClickedButton2()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	m_Opengl.SetClearColor();
+}
+
+
+void CMyOpenglDlg::OnBnClickedButton3()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	stVertex v1, v2;
+	v1.x = 10; v1.y = 10; v1.z = 0.0;
+	v2.x = 50; v2.y = 50; v2.z = 0.0;
+	m_Opengl.AddLine(v1, v2);
+	v1.x = 50; v1.y = 50; v1.z = 0.0;
+	v2.x = 150; v2.y = 50; v2.z = 0.0;
+	m_Opengl.AddLine(v1, v2);
+	m_Opengl.SetDraw();
 }

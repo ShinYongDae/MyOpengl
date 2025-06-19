@@ -56,7 +56,8 @@ class CSimpleOpengl : public CStatic //public CWnd
 	int m_nWorldW, m_nWorldH;
 	CArLine m_arLine;
 
-	BOOL m_bInit, m_bDraw;
+	BOOL m_bInit;
+	BOOL m_bDraw, m_bDrawClear, m_bDrawClearColor;
 	BOOL m_bThreadAlive, m_bThreadStateEnd;
 	std::thread t1;
 
@@ -70,6 +71,14 @@ class CSimpleOpengl : public CStatic //public CWnd
 
 	void StringToChar(CString str, char* szStr);
 
+	void DrawBegin(int mode, int size, stColor color);
+	void DrawEnd();
+	void DrawRect(stVertex V1, stVertex V2);
+	void DrawLine(stVertex V1, stVertex V2);
+	void Draw();
+	void DrawClear();
+	void DrawClearColor(stColor color);
+
 public:
 	CSimpleOpengl();
 	CSimpleOpengl(HWND& hCtrl, CWnd* pParent = NULL);
@@ -80,14 +89,11 @@ public:
 
 	static void ProcThrd(const LPVOID lpContext);
 
-	void DrawBegin(int mode, int size, stColor color);
-	void DrawEnd();
-	void DrawRect(stVertex V1, stVertex V2);
-	void DrawLine(stVertex V1, stVertex V2);
-	void Draw();
-	void DrawClear();
-
 	void SetText(CString str, stVertex pos, int size=10, stColor color = { 1,1,1 }, int line_width=1);
+	void SetClear();
+	void SetClearColor();
+	void SetDraw();
+
 	void AddLine(stVertex v1, stVertex v2);
 
 	void SetupResize(int cx, int cy);

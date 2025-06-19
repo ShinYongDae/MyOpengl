@@ -22,7 +22,10 @@ CSimpleOpengl::CSimpleOpengl()
 	Angle[1] = 0.0f;
 	Angle[2] = 0.0f;
 	m_bInit = FALSE;
+
 	m_bDraw = FALSE;
+	m_bDrawClear = FALSE;
+	m_bDrawClearColor = FALSE;
 
 	ThreadStart();
 }
@@ -35,7 +38,10 @@ CSimpleOpengl::CSimpleOpengl(HWND& hCtrl, CWnd* pParent/*=NULL*/)
 	m_hCtrl = hCtrl;
 	m_pDc = NULL;
 	m_bInit = FALSE;
+
 	m_bDraw = FALSE;
+	m_bDrawClear = FALSE;
+	m_bDrawClearColor = FALSE;
 
 	m_pDc = new CClientDC(FromHandle(hCtrl));
 	CreateWndForm(WS_CHILD | WS_OVERLAPPED);
@@ -91,7 +97,75 @@ BOOL CSimpleOpengl::CreateWndForm(DWORD dwStyle)
 	return TRUE;
 }
 
-//void CSimpleOpengl::SetHwnd(CDC* pDc, CWnd* pParent/*=NULL*/)
+/*
+// 그리기 표면의 픽셀 형식을 설명
+typedef struct tagPIXELFORMATDESCRIPTOR {
+	WORD  nSize;
+	WORD  nVersion;
+	DWORD dwFlags;
+	BYTE  iPixelType;
+	BYTE  cColorBits;
+	BYTE  cRedBits;
+	BYTE  cRedShift;
+	BYTE  cGreenBits;
+	BYTE  cGreenShift;
+	BYTE  cBlueBits;
+	BYTE  cBlueShift;
+	BYTE  cAlphaBits;
+	BYTE  cAlphaShift;
+	BYTE  cAccumBits;
+	BYTE  cAccumRedBits;
+	BYTE  cAccumGreenBits;
+	BYTE  cAccumBlueBits;
+	BYTE  cAccumAlphaBits;
+	BYTE  cDepthBits;
+	BYTE  cStencilBits;
+	BYTE  cAuxBuffers;
+	BYTE  iLayerType;
+	BYTE  bReserved;
+	DWORD dwLayerMask;
+	DWORD dwVisibleMask;
+	DWORD dwDamageMask;
+} PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESCRIPTOR, *LPPIXELFORMATDESCRIPTOR;
+
+[dwFlags]
+=================================================================================================================================================
+값										의미
+=================================================================================================================================================
+PFD_DRAW_TO_WINDOW						버퍼는 창 또는 디바이스 화면에 그릴 수 있습니다.
+0x00000004
+
+PFD_DRAW_TO_BITMAP						버퍼는 메모리 비트맵에 그릴 수 있습니다.
+0x00000008
+
+PFD_SUPPORT_GDI							버퍼는 GDI 그리기를 지원합니다. 이 플래그 및 PFD_DOUBLEBUFFER 현재 제네릭 구현에서 상호 배타적입니다.
+0x00000010
+
+PFD_SUPPORT_OPENGL						버퍼는 OpenGL 그리기를 지원합니다.
+0x00000020
+
+PFD_GENERIC_ACCELERATED					픽셀 형식은 제네릭 구현을 가속화하는 디바이스 드라이버에서 지원됩니다. 이 플래그가 명확하고 PFD_GENERIC_FORMAT 플래그가 설정된 경우 픽셀 형식은 제네릭 구현에서만 지원됩니다.
+0x00001000
+
+PFD_GENERIC_FORMAT						픽셀 형식은 제네릭 구현이라고도 하는 GDI 소프트웨어 구현에서 지원됩니다. 이 비트가 명확한 경우 픽셀 형식은 디바이스 드라이버 또는 하드웨어에서 지원됩니다.
+0x00000040
+
+PFD_NEED_PALETTE						버퍼는 팔레트 관리 디바이스에서 RGBA 픽셀을 사용합니다. 이 픽셀 형식에 대한 최상의 결과를 얻으려면 논리적 팔레트가 필요합니다. 색상표의 색은 cRedBits, cRedShift, cGreenBits, cGreenShift, cBluebits 및 cBlueShift 멤버의 값에 따라 지정되어야 합니다. wglMakeCurrent를 호출하기 전에 디바이스 컨텍스트에서 팔레트를 만들고 실현해야 합니다.
+0x00000080
+
+PFD_NEED_SYSTEM_PALETTE					256색 모드에서만 하나의 하드웨어 팔레트를 지원하는 하드웨어의 픽셀 형식 설명자에 정의됩니다. 이러한 시스템에서 하드웨어 가속을 사용하려면 RGBA 모드에서 하드웨어 팔레트가 고정 순서(예: 3-3-2)이거나 색 인덱스 모드일 때 논리 팔레트와 일치해야 합니다. 이 플래그가 설정되면 프로그램에서 SetSystemPaletteUse 를 호출하여 논리 팔레트와 시스템 팔레트의 일대일 매핑을 강제해야 합니다. OpenGL 하드웨어가 여러 하드웨어 팔레트를 지원하고 디바이스 드라이버가 OpenGL에 예비 하드웨어 팔레트를 할당할 수 있는 경우 이 플래그는 일반적으로 명확합니다.
+0x00000100								이 플래그는 제네릭 픽셀 형식으로 설정되지 않습니다.
+
+PFD_DOUBLEBUFFER						버퍼가 이중 버퍼링됩니다. 이 플래그 및 PFD_SUPPORT_GDI 현재 제네릭 구현에서 상호 배타적입니다.
+0x00000001
+
+PFD_STEREO								버퍼는 입체입니다. 이 플래그는 현재 제네릭 구현에서 지원되지 않습니다.
+0x00000002
+
+PFD_SWAP_LAYER_BUFFERS					디바이스가 이중 버퍼링 오버레이 또는 언더레이 평면을 포함하는 픽셀 형식으로 개별 레이어 평면을 교환할 수 있는지 여부를 나타냅니다. 그렇지 않으면 모든 레이어 평면이 그룹으로 함께 교환됩니다. 이 플래그가 설정되면 wglSwapLayerBuffers 가 지원됩니다.
+0x00000800
+=================================================================================================================================================
+*/
 void CSimpleOpengl::Init()
 {
 	if (!m_bInit)
@@ -101,12 +175,12 @@ void CSimpleOpengl::Init()
 		{
 			sizeof(PIXELFORMATDESCRIPTOR),
 			1,
-			PFD_DRAW_TO_WINDOW |
-			PFD_SUPPORT_OPENGL |
-			PFD_DOUBLEBUFFER,
 			//PFD_DRAW_TO_WINDOW |
-			//PFD_SUPPORT_OPENGL,
-			PFD_TYPE_RGBA,
+			//PFD_SUPPORT_OPENGL |
+			//PFD_DOUBLEBUFFER,				// 더블 버퍼 윈도우 (default: 싱글 버퍼 윈도우)
+			PFD_DRAW_TO_WINDOW |
+			PFD_SUPPORT_OPENGL,
+			PFD_TYPE_RGBA,					// RGBA 모드 (default)
 			24,
 			0,0,0,0,0,0,
 			0,0,
@@ -127,7 +201,7 @@ void CSimpleOpengl::Init()
 
 		int argc = 1;
 		char *argv[1] = { (char*)"Something" };
-		glutInit(&argc, argv);
+		glutInit(&argc, argv);								// Window OS와 Session 연결 / GLUT Library를 초기화
 
 		//SetupLight();
 		//glDisable(GL_LIGHTING);
@@ -177,7 +251,7 @@ void CSimpleOpengl::ProcThrd(const LPVOID lpContext)
 	{
 		if (!pSimpleOpengl->ProcOpengl())
 			break;
-		//Sleep(100);
+		Sleep(30);
 	}
 
 	pSimpleOpengl->ThreadEnd();
@@ -190,6 +264,17 @@ BOOL CSimpleOpengl::ProcOpengl()
 		m_bDraw = FALSE;
 		Init();
 		Draw();
+	}
+	if (m_bDrawClear)
+	{
+		m_bDrawClear = FALSE;
+		DrawClear();
+	}
+	if (m_bDrawClearColor)
+	{
+		m_bDrawClearColor = FALSE;
+		stColor color = { 0.0, 0.0, 1.0, 1.0 }; // BLUE
+		DrawClearColor(color);
 	}
 	return TRUE;
 }
@@ -490,8 +575,8 @@ void CSimpleOpengl::Draw()
 	}
 
 	DrawEnd();
-	glFlush();				// 그림이 다 그렸졌다는 걸 알려줌.
-	SwapBuffers(m_hDc);		// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
+	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
 
 	m_arLine.RemoveAll();
 }
@@ -499,5 +584,29 @@ void CSimpleOpengl::Draw()
 void CSimpleOpengl::DrawClear()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	SwapBuffers(m_hDc);		// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
+	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+}
+
+void CSimpleOpengl::DrawClearColor(stColor color)
+{
+	glClearColor(color.R, color.G, color.B, color.A);	// 바탕색을 지정
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
+	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+}
+
+void CSimpleOpengl::SetClear()
+{
+	m_bDrawClear = TRUE;
+}
+
+void CSimpleOpengl::SetClearColor()
+{
+	m_bDrawClearColor = TRUE;
+}
+
+void CSimpleOpengl::SetDraw()
+{
+	m_bDraw = TRUE;
 }

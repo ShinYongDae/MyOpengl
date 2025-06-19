@@ -131,6 +131,7 @@ BOOL CMyOpenglDlg::OnInitDialog()
 	//m_pDc = new CClientDC(FromHandle(hWnd));
 	//m_Opengl.SetHwnd(m_pDc, this);
 	//m_Opengl.RedrawWindow(NULL, NULL, RDW_INVALIDATE);
+	m_Opengl.SetFont(_T("±¼¸²Ã¼"), 12, TRUE);
 
 	stVertex v1, v2;
 	v1.x = 10; v1.y = 10; v1.z = 0.0;

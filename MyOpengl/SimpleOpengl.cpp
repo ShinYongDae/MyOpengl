@@ -22,6 +22,10 @@ CSimpleOpengl::CSimpleOpengl()
 	Angle[1] = 0.0f;
 	Angle[2] = 0.0f;
 	m_bInit = FALSE;
+	m_bFont = FALSE; 
+	m_crText = RGB_WHITE;
+
+	m_pMenu = NULL;
 
 	m_bDraw = FALSE;
 	m_bDrawClear = FALSE;
@@ -38,6 +42,10 @@ CSimpleOpengl::CSimpleOpengl(HWND& hCtrl, CWnd* pParent/*=NULL*/)
 	m_hCtrl = hCtrl;
 	m_pDc = NULL;
 	m_bInit = FALSE;
+	m_bFont = FALSE;
+	m_crText = RGB_WHITE;
+
+	m_pMenu = NULL;
 
 	m_bDraw = FALSE;
 	m_bDrawClear = FALSE;
@@ -55,6 +63,12 @@ CSimpleOpengl::~CSimpleOpengl()
 	t1.join();
 
 
+	if (m_bFont)
+	{
+		if (m_Font.DeleteObject())
+			m_bFont = FALSE;
+	}
+
 	if (m_hRC)
 	{
 		wglDeleteContext(m_hRC);
@@ -68,6 +82,11 @@ CSimpleOpengl::~CSimpleOpengl()
 		m_pDc = NULL;
 	}
 
+	if (m_pMenu)
+	{
+		delete m_pMenu;
+		m_pMenu = NULL;
+	}
 }
 
 
@@ -75,6 +94,7 @@ BEGIN_MESSAGE_MAP(CSimpleOpengl, CWnd)
 	ON_WM_CTLCOLOR()
 	ON_WM_DRAWITEM()
 	ON_WM_PAINT()
+	ON_WM_RBUTTONDOWN()
 END_MESSAGE_MAP()
 
 
@@ -178,8 +198,10 @@ void CSimpleOpengl::Init()
 			//PFD_DRAW_TO_WINDOW |
 			//PFD_SUPPORT_OPENGL |
 			//PFD_DOUBLEBUFFER,				// 더블 버퍼 윈도우 (default: 싱글 버퍼 윈도우)
-			PFD_DRAW_TO_WINDOW |
-			PFD_SUPPORT_OPENGL,
+			PFD_DRAW_TO_WINDOW	|
+			PFD_SUPPORT_OPENGL	|
+			PFD_SUPPORT_GDI		|
+			PFD_DOUBLEBUFFER_DONTCARE,
 			PFD_TYPE_RGBA,					// RGBA 모드 (default)
 			24,
 			0,0,0,0,0,0,
@@ -214,7 +236,62 @@ void CSimpleOpengl::Init()
 		m_nWorldH = rtDispCtrl.bottom - rtDispCtrl.top;
 		SetupResize(m_nWorldW, m_nWorldH);
 		//SetupCamera(cameraposmap, nWorldW, nWorldH, Angle);
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
+		SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+	
 	}
+}
+
+void CSimpleOpengl::PopupMenu(UINT nFlags, CPoint point)
+{
+	CMenu menu;
+	menu.CreatePopupMenu();
+	menu.AppendMenu(MF_STRING, (UINT)10001, _T("지표최적화"));
+	menu.AppendMenu(MF_STRING, (UINT)10002, _T("시간최적화"));
+	menu.AppendMenu(MF_STRING, (UINT)10003, _T("변수최적화"));
+	//CRect rect;
+	//::GetClientRect(m_hCtrl, &rect);
+	CPoint ptMenu = point;
+	ClientToScreen(&ptMenu);   //스크린 기준으로 좌표 변환
+	UINT nFlagsForMenu = TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD;
+	//UINT nFlagsForMenu = TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_NONOTIFY | TPM_RETURNCMD;
+	/*
+	=======================================================================================================
+	nFlags:
+	=======================================================================================================
+	TPM_CENTERALIGN		지정한 위치의 중앙에 오게한다.
+	TPM_LEFTALIGN		지정한 위치의 좌측 정렬
+	TPM_RIGHTALIGN		지정한 위치의 오른족 정렬
+	TPM_BOTTOMALIGN		지정한 위치의 바닥에 정렬.
+	TPM_TOPALIGN		지정한 위치의 위쪽에 정렬.
+	TPM_VCENTERALIGN	지정한 위치의 수직중앙 정렬.
+	TPM_LEFTBUTTON		마우스 왼쪽 버튼을 눌러 팝업메뉴를 선택한다.
+	TPM_RIGHTBUTTON		마우스 오른쪽 버튼을 눌러 팝업메뉴를 선택한다.
+	TPM_RETURNCMD		TrackPopupMenu 함수가 반환하는 자료형은 BOOL 형이므로 내부적으로 int형 처리된다.
+						그러므로 TPM_RETURNCMD를 설정한경우 int형으로 어떤메뉴를 선택했는지 확인할수있다.
+	=======================================================================================================
+	*/
+	int nRetValue = menu.TrackPopupMenu(nFlagsForMenu, ptMenu.x, ptMenu.y, this);
+	if (!nRetValue) return;
+	menu.DestroyMenu();
+
+	CString sName = _T("Empty");
+	switch (nRetValue) 
+	{
+	case 10001:
+		sName = _T("IndexOptimizer");
+		break;
+	case 10002:
+		sName = _T("TimeOptimizer");
+		break;
+	case 10003:
+		sName = _T("VariableOptimizer");
+		break;
+	}
+
+	AfxMessageBox(sName);
 }
 
 void CSimpleOpengl::SetHwnd(HWND hCtrlWnd, CWnd* pParent/*=NULL*/)
@@ -264,6 +341,7 @@ BOOL CSimpleOpengl::ProcOpengl()
 		m_bDraw = FALSE;
 		Init();
 		Draw();
+		DrawText();
 	}
 	if (m_bDrawClear)
 	{
@@ -342,21 +420,22 @@ BOOL CSimpleOpengl::ThreadIsAlive()
 //	glMateriali(GL_FRONT, GL_SHININESS, 128);
 //}
 
-void CSimpleOpengl::SetupResize(int cx, int cy)
+void CSimpleOpengl::SetupResize(int width, int height)
 {
 	GLfloat fAspect;
-	if (cy == 0)
-		cy = 1;
+	if (height == 0)
+		height = 1;
 
-	glViewport(0, 0, cx, cy);
+	// OpenGL은 오른손 좌표계임. (default: 화면 중앙이 원점, 좌표계 범위는 [-1.0 ~ 1.0])
+	glViewport(0, 0, width, height);								// OpenGL좌표 (0, 0)-좌하단에서 width, height 영역에만 뷰잉을 함.
 	//glOrtho(-0.5 * cx, 0.5 * cx, -0.5 * cy, 0.5 * cy, -2, 2);
-	glOrtho(0.0, cx, cy, 0.0, -2, 2); // (min_x, max_x, min_y, max_y, near, far)
-	//glOrtho(0.0, cx, 0.0, cy, -2, 2); // (min_x, max_x, min_y, max_y, near, far)
+	glOrtho(0.0, width, height, 0.0, -2, 2);						// Viewport 좌표계의 범위를 설정 (min_x, max_x, min_y, max_y, near, far) : (left, right, bottom, top, near, far)
+	//glOrtho(0.0, cx, 0.0, cy, -2, 2);								// Viewport 좌표계의 범위를 설정 (min_x, max_x, min_y, max_y, near, far) : (left, right, bottom, top, near, far)
 /*
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	fAspect = (GLfloat)cx / (GLfloat)cy;
-	gluPerspective(45.0f, fAspect, 1.0f, -1.0f); // (시야각, 종횡비 (W/H), Front_z, Back_z)
+	gluPerspective(45.0f, fAspect, 1.0f, -1.0f);					// (시야각, 종횡비 (W/H), Front_z, Back_z)
 	//GLfloat f_w = (GLfloat)cx / (GLfloat)_WINDOW_WIDTH;
 	//glOrtho(-1.0, 1.0, -1.0, 1.0, -2, 2);
 
@@ -384,8 +463,8 @@ void CSimpleOpengl::DrawBegin(int nMode, int nSize, stColor Color)
 	if (nMode < Opengl::modPoint || nMode > Opengl::modCircleF)
 		return;
 
-	glPushMatrix(); // Martrix상태를 스택에 넣는다
-	glColor4f(Color.R, Color.G, Color.B, Color.A);
+	glPushMatrix();										// Martrix상태를 스택에 넣는다.
+	glColor4f(Color.R, Color.G, Color.B, Color.A);		// drawing color를 설정한다.
 
 	/* glBegin ~ glEnd 블록 사이에 위치만을 가지는 정점만을 정의함
 	모드				설명
@@ -405,14 +484,14 @@ void CSimpleOpengl::DrawBegin(int nMode, int nSize, stColor Color)
 	switch (nMode)
 	{
 	case Opengl::modPoint:
-		glPointSize(nSize);
+		glPointSize(nSize);				// nSize : 점의 크기 (0.5부터 10.0까지 지정, 설정 간격은 0.125 이상, default : 1.0) - glBegin() - glEnd() 밖에서 사용
 		glBegin(GL_POINTS);
 		break;
 	case Opengl::modLine:
 	case Opengl::modRectE:
 	case Opengl::modCross:
 	case Opengl::modCrossX:
-		glLineWidth(nSize);
+		glLineWidth(nSize);				// nSize : 선의 굵기 (0.5에서 10.0까지 지정, 설정 간격은 0.125 이상, default : 1.0) - PointSize/LineWidth 0.0보다 커야함.
 		glBegin(GL_LINES);
 		break;
 	case Opengl::modRectF:
@@ -425,8 +504,9 @@ void CSimpleOpengl::DrawBegin(int nMode, int nSize, stColor Color)
 		break;
 	case Opengl::modCircleF:
 		glLineWidth(nSize);
-		glBegin(GL_POLYGON);
+		glBegin(GL_POLYGON);			// 꼭지점을 반시계 방향으로 그린 쪽이 앞면
 		break;
+	// glLineStipple (factor, pattern);	// 스티플링: 점선이나 쇄선의 모양[pattern is 16bits], (3, 0x5555) -> ( 1bit is 3pixel, 0x5555 is 0101(5)0101(5)0101(5)0101(5) ) 뒤에서부터 (5)1010 : 선 공백 선 공백 으로 표시
 	}
 }
 
@@ -457,7 +537,7 @@ void CSimpleOpengl::DrawLine(stVertex V1, stVertex V2)
 	glVertex3f(V2.x, V2.y, V2.z);
 }
 
-void CSimpleOpengl::SetText(CString str, stVertex pos, int size, stColor color, int line_width)
+void CSimpleOpengl::SetTextOpenGL(CString str, stVertex pos, int size, stColor color, int line_width) //  Text
 {
 	int nLen = str.GetLength();
 	char* pData = new char[nLen + 1]; // for '\0'
@@ -467,7 +547,7 @@ void CSimpleOpengl::SetText(CString str, stVertex pos, int size, stColor color, 
 	glPushMatrix();
 	glTranslatef(pos.x, pos.y, pos.z);
 	glLineWidth(line_width);
-	glColor3f(color.R, color.G, color.B);
+	glColor3f(color.R, color.G, color.B);			// 색을 선택하는 함수로써 불투명도는 지정하지 않는다.
 	glScalef(0.01f*size, 0.01f*size, 0.01f*size);
 
 	for (c = pData; *c != '\0'; c++)
@@ -498,7 +578,11 @@ void CSimpleOpengl::OnDrawItem(int nIDCtl, LPDRAWITEMSTRUCT lpDrawItemStruct)
 	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
 	if (CTLCOLOR_STATIC == nIDCtl)
 	{
-		//Draw();
+		//CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
+		//CRect rect = lpDrawItemStruct->rcItem;
+		////UINT state = lpDrawItemStruct->itemState;
+
+		//DrawText(pDC, rect);
 	}
 
 	CStatic::OnDrawItem(nIDCtl, lpDrawItemStruct);
@@ -509,6 +593,8 @@ void CSimpleOpengl::OnPaint()
 	CPaintDC dc(this); // device context for painting
 	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
 	// 그리기 메시지에 대해서는 CStatic::OnPaint()을(를) 호출하지 마십시오.
+
+	//DrawText();
 
 	//Draw();
 	m_bDraw = TRUE;
@@ -529,13 +615,22 @@ void CSimpleOpengl::AddLine(stVertex v1, stVertex v2)
 	m_arLine.Add(_line);
 }
 
+void CSimpleOpengl::AddText(CString str, CPoint pos, COLORREF color)
+{
+	stText _text;
+	_text.str = str;
+	_text.pos = pos;
+	_text.color = color;
+	m_arText.Add(_text);
+}
+
 //void CSimpleOpengl::Draw()
 //{
 //	stVertex v1, v2;
 //	stColor color;
 //
 //	v1.x = m_nWorldW/2; v1.y = m_nWorldH/2; v1.z = 0.0;
-//	SetText(_T("Shin Yong Dae"), v1);
+//	SetTextOpenGL(_T("Shin Yong Dae"), v1);
 //
 //	v1.x = 1; v1.y = 1; v1.z = 0.0;
 //	v2.x = m_nWorldW; v2.y = m_nWorldH; v2.z = 0.0;
@@ -575,7 +670,7 @@ void CSimpleOpengl::Draw()
 	}
 
 	DrawEnd();
-	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
+	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌. 모든 명령어를 실행되게 함.
 	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
 
 	m_arLine.RemoveAll();
@@ -583,18 +678,198 @@ void CSimpleOpengl::Draw()
 
 void CSimpleOpengl::DrawClear()
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// 컬러 버퍼: GL_COLOR_BUFFER_BIT, 깊이 버퍼: GL_DEPTH_BUFFER_BIT, 누적 버퍼: GL_ACCUM_BUFFER_BIT, 스텐실 버퍼: GL_STENCIL_BUFFER_BIT
 	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
 	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
 }
 
 void CSimpleOpengl::DrawClearColor(stColor color)
 {
-	glClearColor(color.R, color.G, color.B, color.A);	// 바탕색을 지정
+	glClearColor(color.R, color.G, color.B, 1.0);	// 바탕색을 지정, alpha 값 (1.0값으로 고정)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
 	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
 }
+
+void CSimpleOpengl::DrawText()
+{
+	// Draw the text
+	CRect rect;
+	::GetClientRect(m_hCtrl, &rect);
+	CDC* pDC = m_pDc;
+	CString strWnd, strText, strPars, strRem;
+	GetWindowText(strWnd);
+	strWnd = _T("OpenGL Test");
+	strText = _T("OpenGL Test");
+
+	//if (m_nTxtDispSt < 0)
+	//{
+	//	if (m_chkState & DFCS_PUSHED)
+	//	{
+	//		if (!m_strDn.IsEmpty())
+	//			strText = m_strDn;
+	//		else
+	//			strText = strWnd;
+	//	}
+	//	else
+	//	{
+	//		if (!m_strUp.IsEmpty())
+	//			strText = m_strUp;
+	//		else
+	//			strText = strWnd;
+	//	}
+	//}
+	//else
+	//{
+	//	if (m_nTxtDispSt == BTN_UP)
+	//	{
+	//		if (!m_strUp.IsEmpty())
+	//			strText = m_strUp;
+	//		else
+	//			strText = strWnd;
+	//	}
+	//	else if (m_nTxtDispSt == BTN_DN)
+	//	{
+	//		if (!m_strDn.IsEmpty())
+	//			strText = m_strDn;
+	//		else
+	//			strText = strWnd;
+	//	}
+	//}
+
+	//if (!strText.IsEmpty())
+	{
+		HFONT hOldFont = NULL;
+		//Sets the font
+		if (m_Font.GetSafeHandle() != NULL)
+		{
+			hOldFont = (HFONT)pDC->SelectObject(m_Font.GetSafeHandle());
+		}
+
+		CPoint pt;
+		CSize Extent = pDC->GetTextExtent(strText);
+		//  	CPoint pt( rect.CenterPoint().x - Extent.cx/2, rect.CenterPoint().y - Extent.cy/2 );
+		/*
+		if((m_style & BS_CENTER) == BS_CENTER)
+		{
+		pt.x = rect.CenterPoint().x - Extent.cx/2;
+		pt.y = rect.CenterPoint().y - Extent.cy/2;
+		}
+		else if((m_style & BS_RIGHT) == BS_RIGHT)
+		{
+		pt.x = rect.right - Extent.cx;
+		pt.y = rect.CenterPoint().y - Extent.cy/2;
+		}
+		else if((m_style & BS_LEFT) == BS_LEFT)
+		{
+		pt.x = 0;
+		pt.y = rect.CenterPoint().y - Extent.cy/2;
+		}
+		*/
+		pt.y = rect.CenterPoint().y - Extent.cy / 2;
+
+		// 		if (state & ODS_SELECTED) 
+		//             pt.Offset(1,1);
+
+		int nMode = pDC->SetBkMode(TRANSPARENT);
+		COLORREF crTextOld = pDC->SetTextColor(m_crText);
+
+		// 		if (state & ODS_DISABLED)
+		// 			pDC->DrawState(pt, Extent, strText, DSS_DISABLED, TRUE, 0, (HBRUSH)NULL);
+		// 		else 
+		{
+			int nPos, nLine = 0;
+			CString strLineText[MAX_LINE];
+			CPoint LinePos[MAX_LINE];
+
+			nLine++;
+
+			do
+			{
+				nPos = strText.Find(_T("_"), 0);
+				if (nPos == 0)
+				{
+					strText.SetAt(nPos, _T(' '));
+				}
+
+				nPos = strText.Find(_T("&&"), 0);
+				if (nPos >= 0)
+					strText.Delete(nPos);
+
+				nPos = strText.Find(_T("\\r"), 0);
+				if (nPos > 0)
+				{
+					strPars = strText.Left(nPos);
+					strRem = strText.Right(strText.GetLength() - nPos - 2);
+					strLineText[nLine - 1] = strPars;
+					strText = strRem;
+					nLine++;
+				}
+				else
+				{
+					nPos = strText.Find(_T("\r"), 0);
+					if (nPos > 0)
+					{
+						strPars = strText.Left(nPos);
+						strRem = strText.Right(strText.GetLength() - nPos - 1);
+						strLineText[nLine - 1] = strPars;
+						strText = strRem;
+						nLine++;
+					}
+				}
+
+			} while (nPos > 0);
+
+			strLineText[nLine - 1] = strText;
+			LinePos[0].y = pt.y - (Extent.cy / 2 * (nLine - 1)) - (LINE_SPACE * (nLine - 1) / 2);
+
+			//if (state & ODS_SELECTED || m_nImgBk == BTN_IMG_DN)
+			//	LinePos[0].y++;
+
+			for (int nL = 0; nL<nLine; nL++)
+			{
+				Extent = pDC->GetTextExtent(strLineText[nL]);
+				//  					LinePos[nL].x = rect.CenterPoint().x - Extent.cx/2;
+				// 					LinePos[nL].x = pt.x;
+
+				//if ((m_style & BS_CENTER) == BS_CENTER)
+				//{
+				//	LinePos[nL].x = rect.CenterPoint().x - Extent.cx / 2;
+				//}
+				//else if ((m_style & BS_RIGHT) == BS_RIGHT)
+				//{
+				//	LinePos[nL].x = rect.right - Extent.cx;
+				//}
+				//else if ((m_style & BS_LEFT) == BS_LEFT)
+				//{
+				//	LinePos[nL].x = 0;
+				//}
+				//else
+				{
+					LinePos[nL].x = rect.CenterPoint().x - Extent.cx / 2;
+				}
+
+				//if (state & ODS_SELECTED || m_nImgBk == BTN_IMG_DN)
+				//	LinePos[nL].x++;
+
+				if (nL>0)
+					LinePos[nL].y = LinePos[nL - 1].y + Extent.cy + LINE_SPACE;
+
+				pDC->TextOut(LinePos[nL].x, LinePos[nL].y, strLineText[nL]);
+			}
+		}
+
+		pDC->SetBkMode(nMode);
+
+		//Reset the old font
+		if (hOldFont != NULL)
+		{
+			pDC->SelectObject(hOldFont);
+		}
+	}
+
+}
+
 
 void CSimpleOpengl::SetClear()
 {
@@ -609,4 +884,46 @@ void CSimpleOpengl::SetClearColor()
 void CSimpleOpengl::SetDraw()
 {
 	m_bDraw = TRUE;
+}
+
+void CSimpleOpengl::SetFont(CString srtFntName, int nSize, BOOL bBold)
+{
+	if (m_bFont)
+	{
+		if (m_Font.DeleteObject())
+			m_bFont = FALSE;
+	}
+
+	LOGFONT lfCtrl = { 0 };
+	lfCtrl.lfOrientation = 0;
+	lfCtrl.lfEscapement = 0;
+
+	lfCtrl.lfHeight = nSize;
+	lfCtrl.lfWeight = bBold ? FW_BOLD : FW_NORMAL;
+
+	lfCtrl.lfItalic = FALSE;
+	lfCtrl.lfUnderline = FALSE;
+	lfCtrl.lfStrikeOut = FALSE;
+
+	lfCtrl.lfCharSet = DEFAULT_CHARSET;
+	lfCtrl.lfQuality = DEFAULT_QUALITY;
+	lfCtrl.lfOutPrecision = OUT_DEFAULT_PRECIS;
+	lfCtrl.lfPitchAndFamily = DEFAULT_PITCH;
+	_tcscpy(lfCtrl.lfFaceName, srtFntName);
+
+	if (!m_bFont)
+	{
+		BOOL bCr = m_Font.CreateFontIndirect(&lfCtrl);
+		if (bCr)
+			m_bFont = TRUE;
+	}
+}
+
+
+void CSimpleOpengl::OnRButtonDown(UINT nFlags, CPoint point)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+	PopupMenu(nFlags, point);
+
+	CStatic::OnRButtonDown(nFlags, point);
 }

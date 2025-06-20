@@ -133,7 +133,7 @@ class CSimpleOpengl : public CStatic //public CWnd
 	CArText m_arText;
 
 	BOOL m_bInit;
-	BOOL m_bDraw, m_bDrawClear, m_bDrawClearColor;
+	BOOL m_bDraw, m_bDrawText, m_bDrawClear, m_bDrawClearColor;
 	BOOL m_bThreadAlive, m_bThreadStateEnd;
 	std::thread t1;
 

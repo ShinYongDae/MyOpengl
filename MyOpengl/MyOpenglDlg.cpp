@@ -135,7 +135,7 @@ BOOL CMyOpenglDlg::OnInitDialog()
 
 	stVertex v1, v2;
 	v1.x = 10; v1.y = 10; v1.z = 0.0;
-	v2.x = 50; v2.y = 50; v2.z = 0.0;
+	v2.x = 500; v2.y = 500; v2.z = 0.0;
 	m_Opengl.AddLine(v1, v2);
 
 	SetTimer(0, 100, NULL);
@@ -203,8 +203,8 @@ void CMyOpenglDlg::OnTimer(UINT_PTR nIDEvent)
 		KillTimer(0);
 
 		stVertex v1, v2;
-		v1.x = 50; v1.y = 50; v1.z = 0.0;
-		v2.x = 150; v2.y = 50; v2.z = 0.0;
+		v1.x = 500; v1.y = 500; v1.z = 0.0;
+		v2.x = 1100; v2.y = 500; v2.z = 0.0;
 		m_Opengl.AddLine(v1, v2);
 		m_Opengl.Refresh();
 
@@ -248,10 +248,10 @@ void CMyOpenglDlg::OnBnClickedButton3()
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	stVertex v1, v2;
 	v1.x = 10; v1.y = 10; v1.z = 0.0;
-	v2.x = 50; v2.y = 50; v2.z = 0.0;
+	v2.x = 500; v2.y = 500; v2.z = 0.0;
 	m_Opengl.AddLine(v1, v2);
-	v1.x = 50; v1.y = 50; v1.z = 0.0;
-	v2.x = 150; v2.y = 50; v2.z = 0.0;
+	v1.x = 500; v1.y = 500; v1.z = 0.0;
+	v2.x = 1100; v2.y = 500; v2.z = 0.0;
 	m_Opengl.AddLine(v1, v2);
 	m_Opengl.SetDraw();
 }

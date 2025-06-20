@@ -28,6 +28,7 @@ CSimpleOpengl::CSimpleOpengl()
 	m_pMenu = NULL;
 
 	m_bDraw = FALSE;
+	m_bDrawText = FALSE;
 	m_bDrawClear = FALSE;
 	m_bDrawClearColor = FALSE;
 
@@ -48,6 +49,7 @@ CSimpleOpengl::CSimpleOpengl(HWND& hCtrl, CWnd* pParent/*=NULL*/)
 	m_pMenu = NULL;
 
 	m_bDraw = FALSE;
+	m_bDrawText = FALSE;
 	m_bDrawClear = FALSE;
 	m_bDrawClearColor = FALSE;
 
@@ -195,13 +197,11 @@ void CSimpleOpengl::Init()
 		{
 			sizeof(PIXELFORMATDESCRIPTOR),
 			1,
-			//PFD_DRAW_TO_WINDOW |
-			//PFD_SUPPORT_OPENGL |
-			//PFD_DOUBLEBUFFER,				// 더블 버퍼 윈도우 (default: 싱글 버퍼 윈도우)
 			PFD_DRAW_TO_WINDOW	|
 			PFD_SUPPORT_OPENGL	|
 			PFD_SUPPORT_GDI		|
-			PFD_DOUBLEBUFFER_DONTCARE,
+			PFD_DOUBLEBUFFER,				// 더블 버퍼 윈도우 (default: 싱글 버퍼 윈도우)
+			//PFD_DOUBLEBUFFER_DONTCARE,
 			PFD_TYPE_RGBA,					// RGBA 모드 (default)
 			24,
 			0,0,0,0,0,0,
@@ -239,8 +239,7 @@ void CSimpleOpengl::Init()
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
-		SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
-	
+		SwapBuffers(m_hDc);								// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - 현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer), 그리기 함수에서 glFlush 대신 사용
 	}
 }
 
@@ -341,14 +340,18 @@ BOOL CSimpleOpengl::ProcOpengl()
 		m_bDraw = FALSE;
 		Init();
 		Draw();
+	}
+	else if (m_bDrawText)
+	{
+		m_bDrawText = FALSE;
 		DrawText();
 	}
-	if (m_bDrawClear)
+	else if (m_bDrawClear)
 	{
 		m_bDrawClear = FALSE;
 		DrawClear();
 	}
-	if (m_bDrawClearColor)
+	else if (m_bDrawClearColor)
 	{
 		m_bDrawClearColor = FALSE;
 		stColor color = { 0.0, 0.0, 1.0, 1.0 }; // BLUE
@@ -427,10 +430,57 @@ void CSimpleOpengl::SetupResize(int width, int height)
 		height = 1;
 
 	// OpenGL은 오른손 좌표계임. (default: 화면 중앙이 원점, 좌표계 범위는 [-1.0 ~ 1.0])
-	glViewport(0, 0, width, height);								// OpenGL좌표 (0, 0)-좌하단에서 width, height 영역에만 뷰잉을 함.
+	glViewport(0, 0, width, height);								// OpenGL좌표 (0, 0)-좌하단에서 width, height 영역에만 뷰잉을 함. : Viewport = Screen
+	
+	glMatrixMode(GL_PROJECTION);									// 현재의 행렬 모드를 설정.
+	glLoadIdentity();												// 현재의 변환 행렬을 단위행렬로 설정. (모델 좌표계 = 전역 좌표계 = 시점 좌표계) : 행렬처리가 이루어 지기 전에 좌표계를 초기화 함.
+
 	//glOrtho(-0.5 * cx, 0.5 * cx, -0.5 * cy, 0.5 * cy, -2, 2);
 	glOrtho(0.0, width, height, 0.0, -2, 2);						// Viewport 좌표계의 범위를 설정 (min_x, max_x, min_y, max_y, near, far) : (left, right, bottom, top, near, far)
 	//glOrtho(0.0, cx, 0.0, cy, -2, 2);								// Viewport 좌표계의 범위를 설정 (min_x, max_x, min_y, max_y, near, far) : (left, right, bottom, top, near, far)
+	
+	
+	/*
+	=============================================================================
+	GLenum mode
+	=============================================================================
+	GL_MODELVIEW	:	모델링 및 뷰잉 변환 모드 (물체 이동 시)
+						디폴트 모드로 GL_MODELVIEW 로 설정됨.
+	GL_PROJECTION	:	투영 변환 모드 (클리핑 공갂 정의)
+	GL_TEXTURE		:	텍스처 매핑 모드 (텍스처 매핑 정의)
+	=============================================================================
+	*/
+	glMatrixMode(GL_MODELVIEW);										// 현재의 행렬 모드를 설정.
+	glLoadIdentity();												// 현재의 변환 행렬을 단위행렬로 설정. (모델 좌표계 = 전역 좌표계 = 시점 좌표계) : 행렬처리가 이루어 지기 전에 좌표계를 초기화 함.
+
+	gluPerspective(0.0, 1.0, 1.0, 1.0);							// 원근 투영을 사용하는 경우: fovy: 수직 방향의 보이는 각도 (y축 방향) , aspect: 종횡비 (앞쪽의 클리핑 평면의 폭(w)을 높이(h)로 나눈 값), zNear, zFar
+	//gluLookAt(-100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);			// 관측 변환: 카메라의 위치 설정 (필요한 경우, 다른 곳에 설정 가능)
+	//glTranslated(100.0, 0.0, 0.0);
+	/*
+	void glLoadMatrixd ( const GLdouble * m);	// m: 4*4 행렬 값 (16개의 연속된 값) - 행렬은 열 우선 벡터를 사용
+	void glLoadMatrixf ( const GLfloat * m);	// 현재의 행렬 (CTM, Current Transformation Matrix)을 m의 값으로 바꾼다.
+
+	void glMultMatrixf (const GLfloat *m);		// 현재 행렬에 행렬 m을 곱한다.
+	void glMultMatrixd (const Gldouble *m);		
+
+	void glLoadTransposeMatrix{fd} (…);			// 행 우선 행렬 사용
+	void glMultTransposeMatrix{fd} (…);
+
+	GL함수 호출(좌표계 변환) 순서에 역순으로 물체 변환이 이루어짐.
+	
+	모델링 변환 (이동, 회전, 신축)
+	glTranslated (GLdouble x, GLdouble y, GLdouble z);	// (x, y, z)로 이동
+	glTranslatef (GLfloat x, GLfloat y, GLfloat z);		// 
+
+	glRotated (GLdouble angle, GLdouble x, GLdouble y, GLdouble z);	// 원점과 (x, y, z)을 지나는 선을 축으로 angle만큼 회전
+	glRotatef (GLfloat angle, GLfloat x, GLfloat y, GLfloat z);		// Angle: 도 (degree)단위
+
+	glScaled (GLdouble x, GLdouble y, GLdouble z);		// (x, y, z) 축으로 (x, y, z) 배 만큼 신축
+	glScalef (GLfloat x, GLfloat y, GLfloat z);			//
+
+	void glPushMatrix ()	: 스택에 행렬을 저장한다.(현재 좌표축 저장)
+	void glPopMatrix ()		: 스택의 행렬을 꺼낸다. (변환전의 좌표축으로 복구)
+	*/
 /*
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -598,6 +648,7 @@ void CSimpleOpengl::OnPaint()
 
 	//Draw();
 	m_bDraw = TRUE;
+	m_bDrawText = TRUE;
 }
 
 void CSimpleOpengl::StringToChar(CString str, char* szStr)  // char* returned must be deleted... 
@@ -647,7 +698,7 @@ void CSimpleOpengl::AddText(CString str, CPoint pos, COLORREF color)
 //	DrawEnd();
 //
 //	glFlush();				// 그림이 다 그렸졌다는 걸 알려줌.
-//	SwapBuffers(m_hDc);		// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+//	SwapBuffers(m_hDc);		// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - 현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer), 그리기 함수에서 glFlush 대신 사용
 //}
 
 void CSimpleOpengl::Draw()
@@ -671,7 +722,7 @@ void CSimpleOpengl::Draw()
 
 	DrawEnd();
 	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌. 모든 명령어를 실행되게 함.
-	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - 현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer), 그리기 함수에서 glFlush 대신 사용
 
 	m_arLine.RemoveAll();
 }
@@ -680,7 +731,11 @@ void CSimpleOpengl::DrawClear()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// 컬러 버퍼: GL_COLOR_BUFFER_BIT, 깊이 버퍼: GL_DEPTH_BUFFER_BIT, 누적 버퍼: GL_ACCUM_BUFFER_BIT, 스텐실 버퍼: GL_STENCIL_BUFFER_BIT
 	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
-	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - 현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer), 그리기 함수에서 glFlush 대신 사용
+	
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// 컬러 버퍼: GL_COLOR_BUFFER_BIT, 깊이 버퍼: GL_DEPTH_BUFFER_BIT, 누적 버퍼: GL_ACCUM_BUFFER_BIT, 스텐실 버퍼: GL_STENCIL_BUFFER_BIT
+	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
+	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - 현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer), 그리기 함수에서 glFlush 대신 사용
 }
 
 void CSimpleOpengl::DrawClearColor(stColor color)
@@ -688,7 +743,12 @@ void CSimpleOpengl::DrawClearColor(stColor color)
 	glClearColor(color.R, color.G, color.B, 1.0);	// 바탕색을 지정, alpha 값 (1.0값으로 고정)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
-	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - //현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer)
+	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - 현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer), 그리기 함수에서 glFlush 대신 사용
+	
+	glClearColor(color.R, color.G, color.B, 1.0);	// 바탕색을 지정, alpha 값 (1.0값으로 고정)
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glFlush();											// 그림이 다 그렸졌다는 걸 알려줌.
+	SwapBuffers(m_hDc);									// OpenGL이 완료한 그림을 새롭게 화면에 그린다 - 현재 buffer에 그려진 것과 Frame에 그려진 것을 swap(Double buffer), 그리기 함수에서 glFlush 대신 사용
 }
 
 void CSimpleOpengl::DrawText()
@@ -884,6 +944,7 @@ void CSimpleOpengl::SetClearColor()
 void CSimpleOpengl::SetDraw()
 {
 	m_bDraw = TRUE;
+	m_bDrawText = TRUE;
 }
 
 void CSimpleOpengl::SetFont(CString srtFntName, int nSize, BOOL bBold)
